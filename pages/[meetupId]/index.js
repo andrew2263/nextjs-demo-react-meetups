@@ -1,38 +1,32 @@
 import { useRouter } from 'next/router';
+import { MongoClient, ObjectId } from 'mongodb';
 
 import MeetupDetail from '../../components/meetups/MeetupDetail';
 
 function MeetupDetails(props) {
   return (
     <MeetupDetail
-      image='https://upload.wikimedia.org/wikipedia/commons/d/dd/Wien_-_Stephansdom_%281%29.JPG'
-      title='First Meetup'
-      address='Some Street, 5, Vienna'
-      description='This is a first meetup'
+      image={ props.meetupData.image }
+      title={ props.meetupData.title }
+      address={ props.meetupData.address }
+      description={ props.meetupData.description }
     />
   );
 }
 
 export async function getStaticPaths() {
+  const client = await MongoClient.connect(
+    'mongodb+srv://andrew2263:RLV2azlmeoKKyI06@cluster0.gi6oidi.mongodb.net/meetups?retryWrites=true&w=majority'
+  );
+  const db = client.db();
+  const meetupsCollection = db.collection('meetups');
+  const meetups = await meetupsCollection.find({}, {_id: 1}).toArray();
+  // we're only fetching the _id's
+  client.close();
+
   return {
     fallback: false,
-    paths: [
-      {
-        params: {
-          meetupId: 'm1'
-        } 
-      },
-      {
-        params: {
-          meetupId: 'm2'
-        } 
-      },
-      {
-        params: {
-          meetupId: 'm3'
-        } 
-      }
-    ]
+    paths: meetups.map(meetup => ({  params: { meetupId: meetup._id.toString() }}))
   }
 }
 
@@ -41,16 +35,22 @@ export async function getStaticProps(context) {
 
   const meetupId = context.params.meetupId;
 
-  console.log(meetupId);
+  const client = await MongoClient.connect(
+    'mongodb+srv://andrew2263:RLV2azlmeoKKyI06@cluster0.gi6oidi.mongodb.net/meetups?retryWrites=true&w=majority'
+  );
+  const db = client.db();
+  const meetupsCollection = db.collection('meetups');
+  const selectedMeetup = await meetupsCollection.findOne({_id: ObjectId(meetupId)});
+  client.close();
 
   return {
     props: {
       meetupData: {
-        image: 'https://upload.wikimedia.org/wikipedia/commons/d/dd/Wien_-_Stephansdom_%281%29.JPG',
-        id: meetupId,
-        title: 'First Meetup',
-        address: 'Some Street, 5, Vienna',
-        description: 'This is a first meetup'
+        id: selectedMeetup._id.toString(),
+        title: selectedMeetup.title,
+        address: selectedMeetup.address,
+        image: selectedMeetup.image,
+        description: selectedMeetup.description
       }
     }
   }
